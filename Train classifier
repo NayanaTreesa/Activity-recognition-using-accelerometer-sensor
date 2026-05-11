@@ -1,0 +1,89 @@
+"""
+train_classifier.py
+-------------------
+Step 2: Load extracted features, train an MLP Neural Network classifier,
+        evaluate performance, and save the trained model.
+
+Input:
+    FeatureData.json      — feature matrix from feature_extraction.py
+    Targets.json          — class labels from feature_extraction.py
+
+Output:
+    myMLPClassifier.pkl   — saved trained model (joblib format)
+
+Activity Classes:
+    1 = Standing  |  2 = Walking  |  3 = Sitting
+"""
+
+import json
+import codecs
+import numpy as np
+import joblib
+import matplotlib.pyplot as plt
+from sklearn.neural_network import MLPClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+
+# ── Load Data ──────────────────────────────────────────────────────────────
+print("Loading feature data...")
+with codecs.open("FeatureData.json", 'r', encoding='utf-8') as f:
+    X = np.array(json.load(f))
+
+with codecs.open("Targets.json", 'r', encoding='utf-8') as f:
+    y = json.load(f)
+
+print(f"Dataset: {X.shape[0]} samples × {X.shape[1]} features")
+print(f"Classes: {sorted(set(y))}\n")
+
+# ── Train/Test Split ───────────────────────────────────────────────────────
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+print(f"Train: {len(X_train)} samples | Test: {len(X_test)} samples")
+
+# ── Feature Scaling ────────────────────────────────────────────────────────
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test  = scaler.transform(X_test)
+
+# ── Train MLP Classifier ───────────────────────────────────────────────────
+print("\nTraining MLP Neural Network...")
+clf = MLPClassifier(
+    hidden_layer_sizes=(100,),
+    max_iter=200,
+    alpha=1e-4,
+    solver='sgd',
+    tol=1e-4,
+    random_state=1,
+    learning_rate_init=0.1,
+    verbose=0
+)
+clf.fit(X_train, y_train)
+
+# ── Evaluation ─────────────────────────────────────────────────────────────
+train_acc = clf.score(X_train, y_train)
+test_acc  = clf.score(X_test, y_test)
+
+print(f"\nTraining Accuracy : {train_acc * 100:.2f}%")
+print(f"Test Accuracy     : {test_acc  * 100:.2f}%")
+
+print("\nClassification Report:")
+class_names = ['Standing', 'Walking', 'Sitting']
+print(classification_report(y_test, clf.predict(X_test), target_names=class_names))
+
+# ── Confusion Matrix ───────────────────────────────────────────────────────
+cm = confusion_matrix(y_test, clf.predict(X_test))
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
+disp.plot(cmap='Blues')
+plt.title("Confusion Matrix — MLP Classifier")
+plt.tight_layout()
+plt.savefig("confusion_matrix.png", dpi=150)
+plt.show()
+print("Confusion matrix saved → confusion_matrix.png")
+
+# ── Save Model ─────────────────────────────────────────────────────────────
+joblib.dump(clf, 'myMLPClassifier.pkl')
+joblib.dump(scaler, 'scaler.pkl')
+print("\nModel saved → myMLPClassifier.pkl")
+print("Scaler saved → scaler.pkl")
