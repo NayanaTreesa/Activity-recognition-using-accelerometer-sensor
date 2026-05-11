@@ -1,0 +1,67 @@
+"""
+feature_extraction.py
+---------------------
+Step 1: Load raw accelerometer data, extract time-domain features,
+        visualise feature distributions, and save processed data to JSON.
+
+Activity Classes:
+    1 = Standing
+    2 = Walking
+    3 = Sitting
+
+Output:
+    FeatureData.json  — feature matrix (n_samples x 15)
+    Targets.json      — class labels (n_samples,)
+"""
+
+import os
+import json
+import codecs
+import numpy as np
+import matplotlib.pyplot as plt
+import myFunctions
+
+# ── Paths ──────────────────────────────────────────────────────────────────
+BASE_PATH = os.getcwd()
+STANDING_PATH = os.path.join(BASE_PATH, "sevDB1", "standing") + os.sep
+WALKING_PATH  = os.path.join(BASE_PATH, "sevDB1", "walking")  + os.sep
+SITTING_PATH  = os.path.join(BASE_PATH, "sevDB1", "sitting")  + os.sep
+
+# ── Feature Extraction ─────────────────────────────────────────────────────
+labels = []
+
+feat_standing, labels = myFunctions.load_class_features(STANDING_PATH, labels, class_label=1)
+feat_walking,  labels = myFunctions.load_class_features(WALKING_PATH,  labels, class_label=2)
+feat_sitting,  labels = myFunctions.load_class_features(SITTING_PATH,  labels, class_label=3)
+
+all_features = np.vstack((feat_standing, feat_walking, feat_sitting))
+
+print(f"\nDataset: {all_features.shape[0]} samples × {all_features.shape[1]} features")
+print(f"Class distribution: {labels.count(1)} standing | {labels.count(2)} walking | {labels.count(3)} sitting")
+
+# ── Feature Visualisation ──────────────────────────────────────────────────
+fig, axes = plt.subplots(3, 5, figsize=(15, 8))
+fig.suptitle("Feature Values by Activity Class", fontsize=14)
+
+for i, ax in enumerate(axes.flat):
+    ax.plot(feat_standing[:, i], 'r.', label='Standing')
+    ax.plot(feat_walking[:, i],  'b.', label='Walking')
+    ax.plot(feat_sitting[:, i],  'g.', label='Sitting')
+    ax.set_title(f"Feature {i+1}")
+    ax.get_xaxis().set_visible(False)
+
+handles, lbls = axes[0, 0].get_legend_handles_labels()
+fig.legend(handles, lbls, loc='lower center', ncol=3)
+plt.tight_layout(rect=[0, 0.03, 1, 1])
+plt.savefig("feature_distributions.png", dpi=150)
+plt.show()
+print("Feature distribution plot saved as feature_distributions.png")
+
+# ── Save Processed Data ────────────────────────────────────────────────────
+with codecs.open("FeatureData.json", 'w', encoding='utf-8') as f:
+    json.dump(all_features.tolist(), f, separators=(',', ':'), sort_keys=True, indent=4)
+print("Feature data saved → FeatureData.json")
+
+with codecs.open("Targets.json", 'w', encoding='utf-8') as f:
+    json.dump(labels, f, separators=(',', ':'), sort_keys=True, indent=4)
+print("Target labels saved → Targets.json")
