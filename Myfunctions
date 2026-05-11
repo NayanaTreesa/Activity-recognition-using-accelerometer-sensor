@@ -1,0 +1,102 @@
+"""
+myFunctions.py
+--------------
+Helper functions for accelerometer signal processing and feature extraction.
+
+Features extracted per window:
+- Mean, Min, Max, Std for X, Y, Z axes (12 features)
+- Signal Magnitude Area (SMA)
+- Signal Vector Magnitude (SVM)
+- Tilt Angle (TA)
+Total: 15 features per sample
+"""
+
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def calculate_sma(x, y, z):
+    """
+    Calculate Signal Magnitude Area (SMA).
+    Measures overall movement intensity across all axes.
+    """
+    sma = (np.sum(np.abs(x)) + np.sum(np.abs(y)) + np.sum(np.abs(z))) / x.shape[0]
+    return sma
+
+
+def calculate_svm(x, y, z):
+    """
+    Calculate Signal Vector Magnitude (SVM).
+    Represents the combined magnitude of acceleration across axes.
+    """
+    return np.sqrt(x**2 + y**2 + z**2)
+
+
+def calculate_tilt_angle(x, y, z):
+    """
+    Calculate Tilt Angle (TA) using the Y-axis relative to SVM.
+    Useful for distinguishing posture-based activities (e.g. standing vs lying).
+    """
+    svm = calculate_svm(x, y, z)
+    return np.arcsin(y / svm)
+
+
+def extract_features(file_path):
+    """
+    Extract 15 time-domain features from a single accelerometer CSV file.
+
+    Parameters:
+        file_path (str): Path to a CSV file with columns [x, y, z].
+
+    Returns:
+        list: 15 feature values for the sample.
+    """
+    with open(file_path, 'r') as f:
+        lines = f.readlines()
+
+    data = []
+    for line in lines[1:-1]:  # Skip header and last line
+        values = np.fromstring(line, dtype=float, sep=',')
+        data.append(values)
+
+    data = np.array(data)
+    x, y, z = data[:, 0], data[:, 1], data[:, 2]
+
+    features = [
+        np.mean(x), np.mean(y), np.mean(z),
+        np.min(x),  np.min(y),  np.min(z),
+        np.max(x),  np.max(y),  np.max(z),
+        np.std(x),  np.std(y),  np.std(z),
+        calculate_sma(x, y, z),
+        calculate_svm(np.mean(x), np.mean(y), np.mean(z)),
+        calculate_tilt_angle(np.mean(x), np.mean(y), np.mean(z))
+    ]
+    return features
+
+
+def load_class_features(folder_path, labels, class_label):
+    """
+    Load and extract features from all files in a class folder.
+
+    Parameters:
+        folder_path (str): Path to folder containing CSV files for one activity class.
+        labels (list): Running list of class labels to append to.
+        class_label (int): Numeric label for this activity class.
+
+    Returns:
+        tuple: (feature_matrix [n_samples x 15], updated labels list)
+    """
+    files = os.listdir(folder_path)
+    feature_matrix = np.zeros((1, 15))
+
+    print(f"\nLoading class {class_label} from: {folder_path}")
+    for i, filename in enumerate(files):
+        labels.append(class_label)
+        file_path = os.path.join(folder_path, filename)
+        features = extract_features(file_path)
+        feature_matrix = np.vstack((feature_matrix, features))
+        print(f"  [{i+1}/{len(files)}] {filename} — {len(features)} features extracted")
+
+    feature_matrix = np.delete(feature_matrix, 0, axis=0)  # Remove placeholder row
+    return feature_matrix, labels
